@@ -1,11 +1,11 @@
 package req
 
 import (
+	"github.com/axgle/mahonia"
+	"golang.org/x/net/html/charset"
 	"net/http"
 	"regexp"
 	"strings"
-
-	"golang.org/x/net/html/charset"
 )
 
 var (
@@ -83,24 +83,52 @@ func getEncodingFromContent(content string) string {
 	return ""
 }
 
-func pGetEncoding(content []byte, headers http.Header) string {
+func GetEncoding(content []byte, headers http.Header) string {
 
-	if charset := getEncodingFromContent(string(content)); charset != "" {
-		return charset
+	if c := getEncodingFromContent(string(content)); c != "" {
+		return strings.ToLower(c)
 	}
 
-	if charset := getEncodingFromHeaders(headers); charset != "" {
-		return charset
+	if c := getEncodingFromHeaders(headers); c != "" {
+		c = strings.ToLower(c)
+		if c == "iso-8859-1" && !strings.Contains(strings.ToLower(headers.Get("Content-Type")), "iso-8859-1") {
+			_, contentType, _ := charset.DetermineEncoding(content, "")
+			return strings.ToLower(contentType)
+
+		} else {
+			return c
+		}
 	}
 
 	return ""
 }
 
-func GetEncoding(content []byte, headers http.Header) string {
-	c := pGetEncoding(content, headers)
-	if c == "" || c == "ISO-8859-1" {
-		_, contentType, _ := charset.DetermineEncoding(content, "")
-		c = contentType
+/**
+ * 编码转换
+ * 需要传入原始编码和输出编码，如果原始编码传入出错，则转换出来的文本会乱码
+ */
+func EncodingConvert(src string, srcCode string, tagCode string) string {
+	srcCoder := mahonia.NewDecoder(srcCode)
+	srcResult := srcCoder.ConvertString(src)
+	tagCoder := mahonia.NewDecoder(tagCode)
+	_, cdata, _ := tagCoder.Translate([]byte(srcResult), true)
+	result := string(cdata)
+	return result
+}
+
+func EncodingConvertToUtf8(content string, contentType string) string {
+	var encode string
+
+	if strings.Contains(contentType, "gbk") || strings.Contains(contentType, "gb2312") || strings.Contains(contentType, "gb18030") || strings.Contains(contentType, "windows-1252") {
+		encode = "gb18030"
+	} else if strings.Contains(contentType, "big5") {
+		encode = "big5"
+	} else if strings.Contains(contentType, "utf-8") {
+		encode = "utf-8"
 	}
-	return strings.ToLower(c)
+
+	if encode != "" && encode != "utf-8" {
+		content = EncodingConvert(content, encode, "utf-8")
+	}
+	return content
 }
