@@ -1,17 +1,18 @@
 package req
 
 import (
-	"golang.org/x/net/html/charset"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"golang.org/x/net/html/charset"
 )
 
 var (
 	charsetRe = regexp.MustCompile(`(?is)<meta.*?charset=["\']*(.+?)["\'>]`)
 	pragmaRe  = regexp.MustCompile(`(?is)<meta.*?content=["\']*;?charset=(.+?)["\'>]`)
 	xmlRe     = regexp.MustCompile(`(?is)^<\?XML.*?encoding=["\']*(.+?)["\'>]`)
-	//fmt.Sprintf("^(?%s:%s", "i", pattern[1:])
+	//fmt.Sprintf("^(?%s:%s", "i", pattern[1:]1)
 )
 
 func parseContentTypeHeader(header string) (string, map[string]string) {
