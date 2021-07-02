@@ -6,7 +6,7 @@ import (
 )
 
 func TestGetEncoding(t *testing.T) {
-	resp, err := Get("https://www.baidu.com/")
+	resp, err := Get("https://www.baidu.com")
 	if resp != nil {
 		defer resp.Close()
 	}
