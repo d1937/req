@@ -1,15 +1,16 @@
 package req
 
 import (
+	"golang.org/x/net/html/charset"
 	"net/http"
 	"regexp"
 	"strings"
 )
 
 var (
-	charsetRe = regexp.MustCompile(`(?i)<meta.*?charset=["\']*(.+?)["\'>]`)
-	pragmaRe  = regexp.MustCompile(`(?i)<meta.*?content=["\']*;?charset=(.+?)["\'>]`)
-	xmlRe     = regexp.MustCompile(`(?i)^<\?XML.*?encoding=["\']*(.+?)["\'>]`)
+	charsetRe = regexp.MustCompile(`(?is)<meta.*?charset=["\']*(.+?)["\'>]`)
+	pragmaRe  = regexp.MustCompile(`(?is)<meta.*?content=["\']*;?charset=(.+?)["\'>]`)
+	xmlRe     = regexp.MustCompile(`(?is)^<\?XML.*?encoding=["\']*(.+?)["\'>]`)
 	//fmt.Sprintf("^(?%s:%s", "i", pattern[1:])
 )
 
@@ -81,14 +82,24 @@ func getEncodingFromContent(content string) string {
 	return ""
 }
 
-func GetEncoding(content []byte, headers http.Header) string {
-	if charset := getEncodingFromHeaders(headers); charset != "" {
-		return charset
-	}
+func pGetEncoding(content []byte, headers http.Header) string {
 
 	if charset := getEncodingFromContent(string(content)); charset != "" {
 		return charset
 	}
 
+	if charset := getEncodingFromHeaders(headers); charset != "" {
+		return charset
+	}
+
 	return ""
+}
+
+func GetEncoding(content []byte, headers http.Header) string {
+	c := pGetEncoding(content, headers)
+	if c == "" || c == "ISO-8859-1" {
+		_, contentType, _ := charset.DetermineEncoding(content, "")
+		c = contentType
+	}
+	return strings.ToLower(c)
 }
