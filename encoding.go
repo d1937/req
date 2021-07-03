@@ -1,11 +1,12 @@
 package req
 
 import (
-	"github.com/axgle/mahonia"
-	"golang.org/x/net/html/charset"
 	"net/http"
 	"regexp"
 	"strings"
+
+	"github.com/axgle/mahonia"
+	"golang.org/x/net/html/charset"
 )
 
 var (
@@ -125,9 +126,11 @@ func EncodingConvertToUtf8(content string, contentType string) string {
 		encode = "big5"
 	} else if strings.Contains(contentType, "utf-8") {
 		encode = "utf-8"
+
 	}
 
 	if encode != "" && encode != "utf-8" {
+
 		content = EncodingConvert(content, encode, "utf-8")
 	}
 	return content
