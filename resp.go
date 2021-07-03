@@ -54,17 +54,16 @@ func (r *Resp) Close() {
 		//_, _ = io.Copy(ioutil.Discard, r.resp.Body)
 		err := r.resp.Body.Close()
 		if err != nil {
-			return 
+			return
 		}
 
 	}
-
 
 }
 
 func (r *Resp) ToBytes() ([]byte, error) {
 
-	defer r.Close()
+	//defer r.Close()
 	if r.err != nil {
 		return nil, r.err
 	}
@@ -81,10 +80,11 @@ func (r *Resp) ToBytes() ([]byte, error) {
 
 	_, err := io.Copy(b, r.resp.Body)
 	if err != nil {
-		fmt.Println(err)
+
 		return nil, err
 	}
-	return b.Bytes(), nil
+	r.respBody = b.Bytes()
+	return r.respBody, nil
 }
 
 func (r *Resp) LimitBytes(n int64) ([]byte, error) {
@@ -98,7 +98,7 @@ func (r *Resp) LimitBytes(n int64) ([]byte, error) {
 
 func (r *Resp) LimitReaderBytes(n int64) ([]byte, error) {
 
-	defer r.Close()
+	//defer r.Close()
 	if r.err != nil {
 		return nil, r.err
 	}
