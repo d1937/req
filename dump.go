@@ -153,12 +153,13 @@ func (r *Resp) dumpReqHead(dump *dumpBuffer) {
 		if err == nil {
 			// Ensure all the body is read; otherwise
 			// we'll get a partial dump.
-			io.Copy(ioutil.Discard, req.Body)
-			req.Body.Close()
+			_, _ = io.Copy(ioutil.Discard, req.Body)
+
+			_ = req.Body.Close()
 		}
 
 		dr.c <- strings.NewReader("HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n")
-		pr.Close()
+		_ = pr.Close()
 	}()
 
 	_, err := client.Do(reqSend)
@@ -207,7 +208,7 @@ func (r *Resp) Dump() string {
 	l := dump.Len()
 	if l > 0 {
 		dump.WriteString("=================================")
-		l = dump.Len()
+		//l = dump.Len()
 	}
 
 	r.dumpResponse(dump)

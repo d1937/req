@@ -24,7 +24,7 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			c.SetDeadline(time.Now().Add(15 * time.Second)) //设置发送接收数据超时
+			_ = c.SetDeadline(time.Now().Add(15 * time.Second)) //设置发送接收数据超时
 			return c, nil
 		},
 		DisableKeepAlives:   true,

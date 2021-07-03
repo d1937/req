@@ -21,7 +21,7 @@ func TestToJSON(t *testing.T) {
 	}
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		data, _ := json.Marshal(&r1)
-		w.Write(data)
+		_, _ = w.Write(data)
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
 	r, err := Get(ts.URL)
@@ -51,7 +51,7 @@ func TestToXML(t *testing.T) {
 	}
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		data, _ := xml.Marshal(&r1)
-		w.Write(data)
+		_, _ = w.Write(data)
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
 	r, err := Get(ts.URL)
@@ -78,7 +78,7 @@ func TestFormat(t *testing.T) {
 	respBody := fmt.Sprintf("%s\n%s", respBody1, respBody2)
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(respHeader, "req")
-		w.Write([]byte(respBody))
+		_, _ = w.Write([]byte(respBody))
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
 
@@ -114,7 +114,7 @@ func TestFormat(t *testing.T) {
 func TestBytesAndString(t *testing.T) {
 	respBody := "response body"
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(respBody))
+		_, _ = w.Write([]byte(respBody))
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
 	r, err := Get(ts.URL)

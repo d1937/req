@@ -47,7 +47,7 @@ func TestFormParam(t *testing.T) {
 		"enc":          "中文",
 	}
 	formHandler := func(w http.ResponseWriter, r *http.Request) {
-		r.ParseForm()
+		_ = r.ParseForm()
 		for key, value := range formParam {
 			if v := r.FormValue(key); value != v {
 				t.Errorf("form param %s = %s; want = %s", key, v, value)
@@ -98,7 +98,7 @@ func TestParamBoth(t *testing.T) {
 				t.Errorf("query param %s = %s; want = %s", key, v, value)
 			}
 		}
-		r.ParseForm()
+		_ = r.ParseForm()
 		for key, value := range formParam {
 			if v := r.FormValue(key); value != v {
 				t.Errorf("form param %s = %s; want = %s", key, v, value)

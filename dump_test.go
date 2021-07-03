@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/d1937/logger"
 )
 
 func TestDumpText(t *testing.T) {
@@ -16,7 +18,10 @@ func TestDumpText(t *testing.T) {
 	respHeader := "Response-Header"
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(respHeader, "req")
-		w.Write([]byte(respBody))
+		_, err := w.Write([]byte(respBody))
+		if err != nil {
+			logger.Debugf(err.Error())
+		}
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
 	header := Header{

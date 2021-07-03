@@ -19,6 +19,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/d1937/logger"
 )
 
 // default *Req
@@ -521,7 +523,9 @@ func (m *multipartHelper) Upload(req *http.Request) {
 	go func() {
 		for key, values := range m.form {
 			for _, value := range values {
-				bodyWriter.WriteField(key, value)
+				if err := bodyWriter.WriteField(key, value); err != nil {
+					logger.Debugf(err.Error())
+				}
 			}
 		}
 		var upload func(io.Writer, io.Reader) error
@@ -580,12 +584,15 @@ func (m *multipartHelper) Upload(req *http.Request) {
 			}
 			//iocopy
 			if upload == nil {
-				io.Copy(fileWriter, up.File)
+				_, _ = io.Copy(fileWriter, up.File)
 			} else {
 				if _, ok := up.File.(*os.File); ok {
-					upload(fileWriter, up.File)
+					err := upload(fileWriter, up.File)
+					if err != nil {
+						logger.Debugf(err.Error())
+					}
 				} else {
-					io.Copy(fileWriter, up.File)
+					_, _ = io.Copy(fileWriter, up.File)
 				}
 			}
 			up.File.Close()
@@ -605,13 +612,14 @@ func (m *multipartHelper) Dump() []byte {
 	bodyWriter := multipart.NewWriter(&buf)
 	for key, values := range m.form {
 		for _, value := range values {
-			m.writeField(bodyWriter, key, value)
+			_ = m.writeField(bodyWriter, key, value)
 		}
 	}
 	for _, up := range m.uploads {
-		m.writeFile(bodyWriter, up.FieldName, up.FileName)
+		_ = m.writeFile(bodyWriter, up.FieldName, up.FileName)
+
 	}
-	bodyWriter.Close()
+	_ = bodyWriter.Close()
 	m.dump = buf.Bytes()
 	return m.dump
 }

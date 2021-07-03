@@ -9,7 +9,7 @@ import (
 
 func newDefaultTestServer() *httptest.Server {
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("hi"))
+		_, _ = w.Write([]byte("hi"))
 	}
 	return httptest.NewServer(http.HandlerFunc(handler))
 }
@@ -57,6 +57,6 @@ func TestSetting(t *testing.T) {
 	SetJSONIndent("", "    ")
 	SetJSONEscapeHTML(false)
 	SetXMLIndent("", "\t")
-	SetProxyUrl("http://localhost:8080")
-	SetProxy(nil)
+	_ = SetProxyUrl("http://localhost:8080")
+	_ = SetProxy(nil)
 }
