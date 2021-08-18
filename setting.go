@@ -18,7 +18,9 @@ var (
 
 func init() {
 	httpTransport = &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		TLSClientConfig: &tls.Config{
+			//Renegotiation: tls.RenegotiateOnceAsClient,
+			InsecureSkipVerify: true},
 		Dial: func(netw, addr string) (net.Conn, error) {
 			c, err := net.DialTimeout(netw, addr, time.Second*15) //设置建立连接超时
 			if err != nil {

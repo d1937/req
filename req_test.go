@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -310,4 +311,14 @@ func TestUpload(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestReq_Get(t *testing.T) {
+
+	resp, err := Get("https://www.baidu.com/")
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	fmt.Println(resp.String())
 }
