@@ -2,11 +2,14 @@ package req
 
 import (
 	"bytes"
+	"compress/gzip"
+	"compress/zlib"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"sync"
@@ -21,10 +24,9 @@ type Resp struct {
 	client *http.Client
 	cost   time.Duration
 	*multipartHelper
-	reqBody          []byte
-	respBody         []byte
-	downloadProgress DownloadProgress
-	err              error // delayed error
+	reqBody  []byte
+	respBody []byte
+	err      error // delayed error
 }
 
 var bytesNewBufferpool = sync.Pool{
@@ -71,14 +73,33 @@ func (r *Resp) ToBytes() ([]byte, error) {
 	if r.respBody != nil {
 		return r.respBody, nil
 	}
-	//body,_ := ioutil.ReadAll(r.resp.Body)
-	//fmt.Println(string(body))
+	var reader io.ReadCloser
+	var err error
+	//Accept-Encoding
+	encoding := r.resp.Header.Get("Content-Encoding")
+	if encoding == "" {
+		encoding = r.resp.Header.Get("Accept-Encoding")
+	}
+	switch encoding {
+	case "gzip", "gzip, deflate":
+		if reader, err = gzip.NewReader(r.resp.Body); err != nil {
+			return nil, err
+		}
+	case "deflate":
+		if reader, err = zlib.NewReader(r.resp.Body); err != nil {
+			return nil, err
+		}
+	default:
+		reader = r.resp.Body
+	}
+
+	defer reader.Close()
 
 	b := bytesNewBufferpool.Get().(*bytes.Buffer)
 	b.Reset()
 	defer bytesNewBufferpool.Put(b)
 
-	_, err := io.Copy(b, r.resp.Body)
+	_, err = io.Copy(b, reader)
 	if err != nil {
 
 		return nil, err
@@ -126,6 +147,20 @@ func (r *Resp) String() string {
 	return string(data)
 }
 
+func (resp *Resp) URL() (*url.URL, error) {
+	u := resp.req.URL
+	switch resp.Response().StatusCode {
+	case http.StatusMovedPermanently, http.StatusFound,
+		http.StatusSeeOther, http.StatusTemporaryRedirect:
+		location, err := resp.Response().Location()
+		if err != nil {
+			return nil, err
+		}
+		u = u.ResolveReference(location)
+	}
+	return u, nil
+}
+
 // ToString returns response body as string,
 // return error if error happend when reading
 // the response body
@@ -166,10 +201,6 @@ func (r *Resp) ToFile(name string) error {
 		return err
 	}
 
-	if r.downloadProgress != nil && r.resp.ContentLength > 0 {
-		return r.download(file)
-	}
-
 	defer r.resp.Body.Close()
 	_, err = io.Copy(file, r.resp.Body)
 	return err
@@ -179,14 +210,7 @@ func (r *Resp) download(file *os.File) error {
 	p := make([]byte, 1024)
 	b := r.resp.Body
 	defer b.Close()
-	total := r.resp.ContentLength
 	var current int64
-	var lastTime time.Time
-
-	defer func() {
-		r.downloadProgress(current, total)
-	}()
-
 	for {
 		l, err := b.Read(p)
 		if l > 0 {
@@ -195,10 +219,7 @@ func (r *Resp) download(file *os.File) error {
 				return _err
 			}
 			current += int64(l)
-			if now := time.Now(); now.Sub(lastTime) > r.r.progressInterval {
-				lastTime = now
-				r.downloadProgress(current, total)
-			}
+
 		}
 		if err != nil {
 			if err == io.EOF {

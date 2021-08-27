@@ -24,7 +24,8 @@ func TestToJSON(t *testing.T) {
 		_, _ = w.Write(data)
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
-	r, err := Get(ts.URL)
+	ree := New()
+	r, err := ree.Get(ts.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +55,8 @@ func TestToXML(t *testing.T) {
 		_, _ = w.Write(data)
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
-	r, err := Get(ts.URL)
+	rq := New()
+	r, err := rq.Get(ts.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +71,6 @@ func TestToXML(t *testing.T) {
 }
 
 func TestFormat(t *testing.T) {
-	SetFlags(LstdFlags | Lcost)
 	reqHeader := "Request-Header"
 	respHeader := "Response-Header"
 	reqBody := "request body"
@@ -83,7 +84,8 @@ func TestFormat(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(handler))
 
 	// %v
-	r, err := Post(ts.URL, reqBody, Header{reqHeader: "hello"})
+	rq := New()
+	r, err := rq.Post(ts.URL, reqBody, Header{reqHeader: "hello"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +119,8 @@ func TestBytesAndString(t *testing.T) {
 		_, _ = w.Write([]byte(respBody))
 	}
 	ts := httptest.NewServer(http.HandlerFunc(handler))
-	r, err := Get(ts.URL)
+	rq := New()
+	r, err := rq.Get(ts.URL)
 	if err != nil {
 		t.Fatal(err)
 	}

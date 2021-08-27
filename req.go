@@ -2,7 +2,6 @@ package req
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -19,12 +18,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/d1937/logger"
 )
 
 // default *Req
-var std = New()
 
 // flags to decide which part can be outputed
 const (
@@ -35,6 +31,11 @@ const (
 	Lcost                 // output time costed by the request
 	LstdFlags = LreqHead | LreqBody | LrespHead | LrespBody
 )
+
+type BasicAuth struct {
+	Username string
+	Password string
+}
 
 // Param represents  http request param
 type Param map[string]interface{}
@@ -52,7 +53,8 @@ type FileUpload struct {
 	// form field name
 	FieldName string
 	// file to uplaod, required
-	File io.ReadCloser
+	File        io.ReadCloser
+	ContentType string
 }
 
 type DownloadProgress func(current, total int64)
@@ -118,12 +120,20 @@ type Req struct {
 	xmlEncOpts       *xmlEncOpts
 	flag             int
 	progressInterval time.Duration
+	Req              *http.Request
 }
 
 // New create a new *Req
 func New() *Req {
 	// default progress reporting interval is 200 milliseconds
-	return &Req{flag: LstdFlags, progressInterval: 200 * time.Millisecond}
+	req := &http.Request{
+		//Method:     method,
+		Header:     make(http.Header),
+		Proto:      "HTTP/1.1",
+		ProtoMajor: 1,
+		ProtoMinor: 1,
+	}
+	return &Req{flag: LstdFlags, Req: req, client: newClient()}
 }
 
 type param struct {
@@ -168,27 +178,20 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 	if rawurl == "" {
 		return nil, errors.New("req: url not specified")
 	}
-	req := &http.Request{
-		Method:     method,
-		Header:     make(http.Header),
-		Proto:      "HTTP/1.1",
-		ProtoMajor: 1,
-		ProtoMinor: 1,
-	}
+
 	//ctx, cancelFunc := context.WithTimeout(context.Background(), 1*time.Minute)
 	////ctx, cancelFunc := context.WithCancel(context.Background())
 	//defer cancelFunc()
 	//req = req.WithContext(ctx)
-	req.Close = true
-	resp = &Resp{req: req, r: r}
+	//r.Req.Close = true
+	resp = &Resp{req: r.Req, r: r}
+	r.Req.Method = method
 
-	allowRedirects := true
+	//allowRedirects := true
 
 	var queryParam param
 	var formParam param
 	var uploads []FileUpload
-	var uploadProgress UploadProgress
-	var progress func(int64, int64)
 	var delayedFunc []func()
 	var lastFunc []func()
 
@@ -196,22 +199,24 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 		switch vv := v.(type) {
 		case Header:
 			for key, value := range vv {
-				req.Header.Add(key, value)
+				r.Req.Header.Add(key, value)
 			}
 		case http.Header:
 			for key, values := range vv {
 				for _, value := range values {
-					req.Header.Add(key, value)
+					r.Req.Header.Add(key, value)
 				}
 			}
+		case BasicAuth:
+			r.Req.SetBasicAuth(vv.Username, vv.Password)
 		case *bodyJson:
-			fn, err := setBodyJson(req, resp, r.jsonEncOpts, vv.v)
+			fn, err := setBodyJson(r.Req, resp, r.jsonEncOpts, vv.v)
 			if err != nil {
 				return nil, err
 			}
 			delayedFunc = append(delayedFunc, fn)
 		case *bodyXml:
-			fn, err := setBodyXml(req, resp, r.xmlEncOpts, vv.v)
+			fn, err := setBodyXml(r.Req, resp, r.xmlEncOpts, vv.v)
 			if err != nil {
 				return nil, err
 			}
@@ -224,8 +229,8 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 				formParam.Copy(p)
 			}
 		case FormData:
-			setBodyBytes(req, resp, []byte(vv))
-			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			setBodyBytes(r.Req, resp, []byte(vv))
+			r.Req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		case Param:
 			if method == "GET" || method == "HEAD" {
 				queryParam.Adds(vv)
@@ -235,83 +240,64 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 		case QueryParam:
 			queryParam.Adds(vv)
 		case string:
-			setBodyBytes(req, resp, []byte(vv))
+			setBodyBytes(r.Req, resp, []byte(vv))
 		case []byte:
-			setBodyBytes(req, resp, vv)
+			setBodyBytes(r.Req, resp, vv)
 		case bytes.Buffer:
-			setBodyBytes(req, resp, vv.Bytes())
+			setBodyBytes(r.Req, resp, vv.Bytes())
 		case *http.Client:
 			resp.client = vv
 		case FileUpload:
+			//if vv.ContentType!="" {
+			//	r.Req.Header.Set("Content-Type",vv.ContentType)
+			//}
+
 			uploads = append(uploads, vv)
 		case []FileUpload:
 			uploads = append(uploads, vv...)
 		case *http.Cookie:
-			req.AddCookie(vv)
+			r.Req.AddCookie(vv)
 		case Host:
-			req.Host = string(vv)
+			r.Req.Host = string(vv)
 		case io.Reader:
-			fn := setBodyReader(req, resp, vv)
+			fn := setBodyReader(r.Req, resp, vv)
 			lastFunc = append(lastFunc, fn)
-		case UploadProgress:
-			uploadProgress = vv
-		case DownloadProgress:
-			resp.downloadProgress = vv
-		case func(int64, int64):
-			progress = vv
+
 		case context.Context:
-			req = req.WithContext(vv)
-			resp.req = req
-		case AllowRedirects:
-			if !vv {
-				allowRedirects = false
-			}
+			r.Req = r.Req.WithContext(vv)
+			resp.req = r.Req
+
 		case error:
 			return nil, vv
 		}
 	}
-	if req.Header.Get("User-Agent") == "" || req.Header.Get("user-agent") == "" {
-		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36")
+	if r.Req.Header.Get("User-Agent") == "" || r.Req.Header.Get("user-agent") == "" {
+		r.Req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36")
 	}
 
-	if req.Header.Get("Accept") == "" {
-		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
-	}
-
-	if req.Header.Get("Accept-Language") == "" {
-		req.Header.Set("Accept-Language", "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2")
-	}
-	if length := req.Header.Get("Content-Length"); length != "" {
+	if length := r.Req.Header.Get("Content-Length"); length != "" {
 		if l, err := strconv.ParseInt(length, 10, 64); err == nil {
-			req.ContentLength = l
+			r.Req.ContentLength = l
 		}
 	}
 
-	if len(uploads) > 0 && (req.Method == "POST" || req.Method == "PUT") { // multipart
-		var up UploadProgress
-		if uploadProgress != nil {
-			up = uploadProgress
-		} else if progress != nil {
-			up = UploadProgress(progress)
-		}
+	if len(uploads) > 0 && (r.Req.Method == "POST" || r.Req.Method == "PUT") { // multipart
+
 		multipartHelper := &multipartHelper{
-			form:             formParam.Values,
-			uploads:          uploads,
-			uploadProgress:   up,
-			progressInterval: resp.r.progressInterval,
+			form:    formParam.Values,
+			uploads: uploads,
 		}
-		multipartHelper.Upload(req)
+		multipartHelper.UploadX(r.Req)
+
 		resp.multipartHelper = multipartHelper
 	} else {
-		if progress != nil {
-			resp.downloadProgress = DownloadProgress(progress)
-		}
+
 		if !formParam.Empty() {
-			if req.Body != nil {
+			if r.Req.Body != nil {
 				queryParam.Copy(formParam)
 			} else {
-				setBodyBytes(req, resp, []byte(formParam.Encode()))
-				setContentType(req, "application/x-www-form-urlencoded; charset=UTF-8")
+				setBodyBytes(r.Req, resp, []byte(formParam.Encode()))
+				setContentType(r.Req, "application/x-www-form-urlencoded; charset=UTF-8")
 			}
 		}
 	}
@@ -329,10 +315,10 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 	if err != nil {
 		return nil, err
 	}
-	req.URL = u
+	r.Req.URL = u
 
-	if host := req.Header.Get("Host"); host != "" {
-		req.Host = host
+	if host := r.Req.Header.Get("Host"); host != "" {
+		r.Req.Host = host
 	}
 
 	for _, fn := range delayedFunc {
@@ -343,21 +329,8 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 		resp.client = r.Client()
 	}
 
-	if !allowRedirects {
-		resp.client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		}
-	}
-
 	var response *http.Response
-	if r.flag&Lcost != 0 {
-		before := time.Now()
-		response, err = resp.client.Do(req)
-		after := time.Now()
-		resp.cost = after.Sub(before)
-	} else {
-		response, err = resp.client.Do(req)
-	}
+	response, err = resp.client.Do(r.Req)
 	if err != nil {
 		return nil, err
 	}
@@ -368,20 +341,27 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 
 	resp.resp = response
 
-	if _, ok := resp.client.Transport.(*http.Transport); ok && response.Header.Get("Content-Encoding") == "gzip" && req.Header.Get("Accept-Encoding") != "" {
-		body, err := gzip.NewReader(response.Body)
+	//if _, ok := resp.client.Transport.(*http.Transport); ok && response.Header.Get("Content-Encoding") == "gzip" && r.Req.Header.Get("Accept-Encoding") != "" {
+	//	body, err := gzip.NewReader(response.Body)
+	//
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	response.Body = body
+	//}
 
-		if err != nil {
-			return nil, err
-		}
-		response.Body = body
-	}
-
-	// output detail if Debug is enabled
+	//// output detail if Debug is enabled
 	if Debug {
 		fmt.Println(resp.Dump())
 	}
 	return
+}
+
+func (r *Req) DisableAllowRedirects() {
+
+	r.Client().CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 }
 
 func setBodyBytes(req *http.Request, resp *Resp, data []byte) {
@@ -515,93 +495,56 @@ type multipartHelper struct {
 	dump             []byte
 	uploadProgress   UploadProgress
 	progressInterval time.Duration
+	ContentType      string
+}
+
+func CreateFormFile(w *multipart.Writer, fieldname, filename string, contentType string) (io.Writer, error) {
+
+	h := make(textproto.MIMEHeader)
+
+	h.Set("Content-Disposition",
+
+		fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+
+			fieldname, filename))
+
+	h.Set("Content-Type", contentType)
+
+	return w.CreatePart(h)
+
+}
+
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+
+func escapeQuotes(s string) string {
+	return quoteEscaper.Replace(s)
 }
 
 func (m *multipartHelper) Upload(req *http.Request) {
-	pr, pw := io.Pipe()
-	bodyWriter := multipart.NewWriter(pw)
-	go func() {
-		for key, values := range m.form {
-			for _, value := range values {
-				if err := bodyWriter.WriteField(key, value); err != nil {
-					logger.Debugf(err.Error())
-				}
-			}
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+	for key, values := range m.form {
+		for _, value := range values {
+			_ = m.writeField(w, key, value)
 		}
-		var upload func(io.Writer, io.Reader) error
-		if m.uploadProgress != nil {
-			var total int64
-			for _, up := range m.uploads {
-				if file, ok := up.File.(*os.File); ok {
-					stat, err := file.Stat()
-					if err != nil {
-						continue
-					}
-					total += stat.Size()
-				}
-			}
-			var current int64
-			buf := make([]byte, 1024)
-			var lastTime time.Time
+	}
+	for _, up := range m.uploads {
+		h := make(textproto.MIMEHeader)
+		h.Set("Content-Disposition",
+			fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+				escapeQuotes(up.FieldName), escapeQuotes(up.FileName)))
+		h.Set("Content-Type", "image/jpg")
 
-			defer func() {
-				m.uploadProgress(current, total)
-			}()
+		p, _ := w.CreatePart(h)
 
-			upload = func(w io.Writer, r io.Reader) error {
-				for {
-					n, err := r.Read(buf)
-					if n > 0 {
-						_, _err := w.Write(buf[:n])
-						if _err != nil {
-							return _err
-						}
-						current += int64(n)
-						if now := time.Now(); now.Sub(lastTime) > m.progressInterval {
-							lastTime = now
-							m.uploadProgress(current, total)
-						}
-					}
-					if err == io.EOF {
-						return nil
-					}
-					if err != nil {
-						return err
-					}
-				}
-			}
-		}
+		io.Copy(p, up.File)
 
-		i := 0
-		for _, up := range m.uploads {
-			if up.FieldName == "" {
-				i++
-				up.FieldName = "file" + strconv.Itoa(i)
-			}
-			fileWriter, err := bodyWriter.CreateFormFile(up.FieldName, up.FileName)
-			if err != nil {
-				continue
-			}
-			//iocopy
-			if upload == nil {
-				_, _ = io.Copy(fileWriter, up.File)
-			} else {
-				if _, ok := up.File.(*os.File); ok {
-					err := upload(fileWriter, up.File)
-					if err != nil {
-						logger.Debugf(err.Error())
-					}
-				} else {
-					_, _ = io.Copy(fileWriter, up.File)
-				}
-			}
-			up.File.Close()
-		}
-		bodyWriter.Close()
-		pw.Close()
-	}()
-	req.Header.Set("Content-Type", bodyWriter.FormDataContentType())
-	req.Body = ioutil.NopCloser(pr)
+	}
+	_ = w.Close()
+
+	req.Header.Set("Content-Type", w.FormDataContentType())
+	req.Body = ioutil.NopCloser(&buf)
+
 }
 
 func (m *multipartHelper) Dump() []byte {
@@ -616,7 +559,7 @@ func (m *multipartHelper) Dump() []byte {
 		}
 	}
 	for _, up := range m.uploads {
-		_ = m.writeFile(bodyWriter, up.FieldName, up.FileName)
+		_, _ = m.writeFile(bodyWriter, up.FieldName, up.FileName, up.ContentType)
 
 	}
 	_ = bodyWriter.Close()
@@ -624,10 +567,35 @@ func (m *multipartHelper) Dump() []byte {
 	return m.dump
 }
 
+func (m *multipartHelper) UploadX(req *http.Request) {
+
+	var buf bytes.Buffer
+	bodyWriter := multipart.NewWriter(&buf)
+	for key, values := range m.form {
+		for _, value := range values {
+			_ = m.writeField(bodyWriter, key, value)
+		}
+	}
+
+	for _, up := range m.uploads {
+		write, err := m.writeFile(bodyWriter, up.FieldName, up.FileName, up.ContentType)
+		if err != nil {
+			continue
+		}
+		_, _ = io.Copy(write, up.File)
+
+	}
+	_ = bodyWriter.Close()
+	m.dump = buf.Bytes()
+	req.ContentLength = int64(buf.Len())
+	req.Header.Set("Content-Type", bodyWriter.FormDataContentType())
+	req.Body = ioutil.NopCloser(&buf)
+}
+
 func (m *multipartHelper) writeField(w *multipart.Writer, fieldname, value string) error {
 	h := make(textproto.MIMEHeader)
 	h.Set("Content-Disposition",
-		fmt.Sprintf(`form-data; name="%s"`, fieldname))
+		fmt.Sprintf(`form-data; name="%s"`, escapeQuotes(fieldname)))
 	p, err := w.CreatePart(h)
 	if err != nil {
 		return err
@@ -636,18 +604,23 @@ func (m *multipartHelper) writeField(w *multipart.Writer, fieldname, value strin
 	return err
 }
 
-func (m *multipartHelper) writeFile(w *multipart.Writer, fieldname, filename string) error {
+func (m *multipartHelper) writeFile(w *multipart.Writer, fieldname, filename string, contentType string) (io.Writer, error) {
 	h := make(textproto.MIMEHeader)
 	h.Set("Content-Disposition",
 		fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
 			fieldname, filename))
-	h.Set("Content-Type", "application/octet-stream")
+	if contentType != "" {
+		h.Set("Content-Type", contentType)
+	} else {
+		h.Set("Content-Type", "application/octet-stream")
+	}
+
 	p, err := w.CreatePart(h)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = p.Write([]byte("******"))
-	return err
+
+	return p, nil
 }
 
 // Get execute a http GET request
@@ -685,42 +658,54 @@ func (r *Req) Options(url string, v ...interface{}) (*Resp, error) {
 	return r.Do("OPTIONS", url, v...)
 }
 
-// Get execute a http GET request
-func Get(url string, v ...interface{}) (*Resp, error) {
-	return std.Get(url, v...)
+func (r *Req) SetBasicAuth(username, password string) {
+	r.Req.SetBasicAuth(username, password)
 }
 
-// Post execute a http POST request
-func Post(url string, v ...interface{}) (*Resp, error) {
-	return std.Post(url, v...)
+func (r *Req) AddCookies(cookieMap map[string]string) {
+	if cookieMap == nil {
+		return
+	}
+	for k, v := range cookieMap {
+		cookie := &http.Cookie{Name: k, Value: v}
+		r.Req.AddCookie(cookie)
+	}
 }
 
-// Put execute a http PUT request
-func Put(url string, v ...interface{}) (*Resp, error) {
-	return std.Put(url, v...)
+func (r *Req) AddHeader(headers map[string]string) {
+	if headers == nil {
+		return
+	}
+
+	for k, v := range headers {
+		r.Req.Header.Add(k, v)
+	}
+
 }
 
-// Head execute a http HEAD request
-func Head(url string, v ...interface{}) (*Resp, error) {
-	return std.Head(url, v...)
-}
+func (r *Req) UpdateCookie(cookies interface{}) {
+	switch cookies.(type) {
+	case map[string]string:
+		if cmap, ok := cookies.(map[string]string); ok {
+			for k, v := range cmap {
+				cc := &http.Cookie{Name: k, Value: v}
+				r.Req.AddCookie(cc)
+			}
+		}
 
-// Options execute a http OPTIONS request
-func Options(url string, v ...interface{}) (*Resp, error) {
-	return std.Options(url, v...)
-}
+	case string:
+		if cstr, ok := cookies.(string); ok {
+			c := strings.Split(cstr, ";")
+			for _, value := range c {
+				cv := strings.Split(value, "=")
+				if len(cv) == 2 {
 
-// Delete execute a http DELETE request
-func Delete(url string, v ...interface{}) (*Resp, error) {
-	return std.Delete(url, v...)
-}
+					cc := &http.Cookie{Name: cv[0], Value: cv[1]}
+					r.Req.AddCookie(cc)
+				}
+			}
+		}
 
-// Patch execute a http PATCH request
-func Patch(url string, v ...interface{}) (*Resp, error) {
-	return std.Patch(url, v...)
-}
+	}
 
-// Do execute request.
-func Do(method, url string, v ...interface{}) (*Resp, error) {
-	return std.Do(method, url, v...)
 }

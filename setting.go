@@ -3,6 +3,7 @@ package req
 import (
 	"crypto/tls"
 	"errors"
+	"golang.org/x/net/publicsuffix"
 	"net"
 	"net/http"
 	"net/http/cookiejar"
@@ -35,7 +36,10 @@ func init() {
 	}
 }
 func newClient() *http.Client {
-	jar, _ := cookiejar.New(nil)
+	options := cookiejar.Options{
+		PublicSuffixList: publicsuffix.List,
+	}
+	jar, _ := cookiejar.New(&options)
 	return &http.Client{
 		Jar:       jar,
 		Transport: httpTransport,
@@ -52,38 +56,13 @@ func (r *Req) Client() *http.Client {
 }
 
 // Client return the default underlying http client
-func Client() *http.Client {
-	return std.Client()
-}
+//func Client() *http.Client {
+//	return std.Client()
+//}
 
 // SetClient sets the underlying http.Client.
 func (r *Req) SetClient(client *http.Client) {
 	r.client = client // use default if client == nil
-}
-
-// SetClient sets the default http.Client for requests.
-func SetClient(client *http.Client) {
-	std.SetClient(client)
-}
-
-// SetFlags control display format of *Resp
-func (r *Req) SetFlags(flags int) {
-	r.flag = flags
-}
-
-// SetFlags control display format of *Resp
-func SetFlags(flags int) {
-	std.SetFlags(flags)
-}
-
-// Flags return output format for the *Resp
-func (r *Req) Flags() int {
-	return r.flag
-}
-
-// Flags return output format for the *Resp
-func Flags() int {
-	return std.Flags()
 }
 
 func (r *Req) getTransport() *http.Transport {
@@ -103,9 +82,9 @@ func (r *Req) EnableInsecureTLS(enable bool) {
 	trans.TLSClientConfig.InsecureSkipVerify = enable
 }
 
-func EnableInsecureTLS(enable bool) {
-	std.EnableInsecureTLS(enable)
-}
+//func EnableInsecureTLS(enable bool) {
+//	std.EnableInsecureTLS(enable)
+//}
 
 // EnableCookieenable or disable cookie manager
 func (r *Req) EnableCookie(enable bool) {
@@ -118,9 +97,9 @@ func (r *Req) EnableCookie(enable bool) {
 }
 
 // EnableCookieenable or disable cookie manager
-func EnableCookie(enable bool) {
-	std.EnableCookie(enable)
-}
+//func EnableCookie(enable bool) {
+//	std.EnableCookie(enable)
+//}
 
 // SetTimeout sets the timeout for every request
 func (r *Req) SetTimeout(d time.Duration) {
@@ -128,9 +107,9 @@ func (r *Req) SetTimeout(d time.Duration) {
 }
 
 // SetTimeout sets the timeout for every request
-func SetTimeout(d time.Duration) {
-	std.SetTimeout(d)
-}
+//func SetTimeout(d time.Duration) {
+//	std.SetTimeout(d)
+//}
 
 // SetProxyUrl set the simple proxy with fixed proxy url
 func (r *Req) SetProxyUrl(rawurl string) error {
@@ -147,9 +126,9 @@ func (r *Req) SetProxyUrl(rawurl string) error {
 }
 
 // SetProxyUrl set the simple proxy with fixed proxy url
-func SetProxyUrl(rawurl string) error {
-	return std.SetProxyUrl(rawurl)
-}
+//func SetProxyUrl(rawurl string) error {
+//	return std.SetProxyUrl(rawurl)
+//}
 
 // SetProxy sets the proxy for every request
 func (r *Req) SetProxy(proxy func(*http.Request) (*url.URL, error)) error {
@@ -162,9 +141,9 @@ func (r *Req) SetProxy(proxy func(*http.Request) (*url.URL, error)) error {
 }
 
 // SetProxy sets the proxy for every request
-func SetProxy(proxy func(*http.Request) (*url.URL, error)) error {
-	return std.SetProxy(proxy)
-}
+//func SetProxy(proxy func(*http.Request) (*url.URL, error)) error {
+//	return std.SetProxy(proxy)
+//}
 
 type jsonEncOpts struct {
 	indentPrefix string
@@ -198,9 +177,9 @@ func (r *Req) SetJSONEscapeHTML(escape bool) {
 //
 // In non-HTML settings where the escaping interferes with the readability
 // of the output, SetEscapeHTML(false) disables this behavior.
-func SetJSONEscapeHTML(escape bool) {
-	std.SetJSONEscapeHTML(escape)
-}
+//func SetJSONEscapeHTML(escape bool) {
+//	std.SetJSONEscapeHTML(escape)
+//}
 
 // SetJSONIndent instructs the encoder to format each subsequent encoded
 // value as if indented by the package-level function Indent(dst, src, prefix, indent).
@@ -214,9 +193,9 @@ func (r *Req) SetJSONIndent(prefix, indent string) {
 // SetJSONIndent instructs the encoder to format each subsequent encoded
 // value as if indented by the package-level function Indent(dst, src, prefix, indent).
 // Calling SetIndent("", "") disables indentation.
-func SetJSONIndent(prefix, indent string) {
-	std.SetJSONIndent(prefix, indent)
-}
+//func SetJSONIndent(prefix, indent string) {
+//	std.SetJSONIndent(prefix, indent)
+//}
 
 type xmlEncOpts struct {
 	prefix string
@@ -237,23 +216,4 @@ func (r *Req) SetXMLIndent(prefix, indent string) {
 	opts := r.getXMLEncOpts()
 	opts.prefix = prefix
 	opts.indent = indent
-}
-
-// SetXMLIndent sets the encoder to generate XML in which each element
-// begins on a new indented line that starts with prefix and is followed by
-// one or more copies of indent according to the nesting depth.
-func SetXMLIndent(prefix, indent string) {
-	std.SetXMLIndent(prefix, indent)
-}
-
-// SetProgressInterval sets the progress reporting interval of both
-// UploadProgress and DownloadProgress handler
-func (r *Req) SetProgressInterval(interval time.Duration) {
-	r.progressInterval = interval
-}
-
-// SetProgressInterval sets the progress reporting interval of both
-// UploadProgress and DownloadProgress handler for the default client
-func SetProgressInterval(interval time.Duration) {
-	std.SetProgressInterval(interval)
 }
