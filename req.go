@@ -341,15 +341,6 @@ func (r *Req) Do(method, rawurl string, vs ...interface{}) (resp *Resp, err erro
 
 	resp.resp = response
 
-	//if _, ok := resp.client.Transport.(*http.Transport); ok && response.Header.Get("Content-Encoding") == "gzip" && r.Req.Header.Get("Accept-Encoding") != "" {
-	//	body, err := gzip.NewReader(response.Body)
-	//
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//	response.Body = body
-	//}
-
 	//// output detail if Debug is enabled
 	if Debug {
 		fmt.Println(resp.Dump())
@@ -498,22 +489,6 @@ type multipartHelper struct {
 	ContentType      string
 }
 
-func CreateFormFile(w *multipart.Writer, fieldname, filename string, contentType string) (io.Writer, error) {
-
-	h := make(textproto.MIMEHeader)
-
-	h.Set("Content-Disposition",
-
-		fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
-
-			fieldname, filename))
-
-	h.Set("Content-Type", contentType)
-
-	return w.CreatePart(h)
-
-}
-
 var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
 
 func escapeQuotes(s string) string {
@@ -558,6 +533,7 @@ func (m *multipartHelper) Dump() []byte {
 			_ = m.writeField(bodyWriter, key, value)
 		}
 	}
+
 	for _, up := range m.uploads {
 		_, _ = m.writeFile(bodyWriter, up.FieldName, up.FileName, up.ContentType)
 

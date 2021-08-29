@@ -139,6 +139,39 @@ func TestBody(t *testing.T) {
 	}
 }
 
+func TestPostJson(t *testing.T) {
+	Debug = true
+	jsonstr := `{
+  "name":"samy",
+  "age":"19"
+	}`
+	r := New()
+	resp, err := r.Post("https://httpbin.org/post", BodyJSON(&jsonstr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(resp.String())
+}
+
+func TestPostXml(t *testing.T) {
+	Debug = true
+	xmlstr := `
+		<?xml version="1.0" encoding="UTF-8"?>
+<custom key="12321321">
+  <document name="sample" location="http://www.sample.com"></document>
+</custom>
+		`
+	r := New()
+	//r.SetJSONEscapeHTML(false)
+	//r.SetJSONIndent("", "\t")
+	resp, err := r.Post("https://reqbin.com/echo/post/xml", BodyXML(&xmlstr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(resp.String())
+
+}
+
 func TestBodyJSON(t *testing.T) {
 	type content struct {
 		Code int    `json:"code"`
@@ -383,6 +416,15 @@ func TestReq_Upload(t *testing.T) {
 	if resp != nil {
 		defer resp.Close()
 	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(resp.String())
+}
+
+func TestReq_Options(t *testing.T) {
+	r := New()
+	resp, err := r.Options("https://www.zhuzhou.com/")
 	if err != nil {
 		t.Fatal(err)
 	}
