@@ -20,18 +20,6 @@ import (
 	"time"
 )
 
-// default *Req
-
-// flags to decide which part can be outputed
-const (
-	LreqHead  = 1 << iota // output request head (request line and request header)
-	LreqBody              // output request body
-	LrespHead             // output response head (response line and response header)
-	LrespBody             // output response body
-	Lcost                 // output time costed by the request
-	LstdFlags = LreqHead | LreqBody | LrespHead | LrespBody
-)
-
 type BasicAuth struct {
 	Username string
 	Password string
@@ -118,7 +106,6 @@ type Req struct {
 	client           *http.Client
 	jsonEncOpts      *jsonEncOpts
 	xmlEncOpts       *xmlEncOpts
-	flag             int
 	progressInterval time.Duration
 	Req              *http.Request
 }
@@ -133,7 +120,7 @@ func New() *Req {
 		ProtoMajor: 1,
 		ProtoMinor: 1,
 	}
-	return &Req{flag: LstdFlags, Req: req, client: newClient()}
+	return &Req{Req: req, client: newClient()}
 }
 
 type param struct {

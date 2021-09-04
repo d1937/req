@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-// create a default client
+var Timeout int = 15
 
 var (
 	httpTransport *http.Transport
@@ -42,7 +42,7 @@ func newClient() *http.Client {
 	return &http.Client{
 		Jar:       jar,
 		Transport: httpTransport,
-		Timeout:   15 * time.Second,
+		Timeout:   time.Duration(Timeout) * time.Second,
 	}
 }
 
@@ -53,11 +53,6 @@ func (r *Req) Client() *http.Client {
 	}
 	return r.client
 }
-
-// Client return the default underlying http client
-//func Client() *http.Client {
-//	return std.Client()
-//}
 
 // SetClient sets the underlying http.Client.
 func (r *Req) SetClient(client *http.Client) {
@@ -81,10 +76,6 @@ func (r *Req) EnableInsecureTLS(enable bool) {
 	trans.TLSClientConfig.InsecureSkipVerify = enable
 }
 
-//func EnableInsecureTLS(enable bool) {
-//	std.EnableInsecureTLS(enable)
-//}
-
 // EnableCookieenable or disable cookie manager
 func (r *Req) EnableCookie(enable bool) {
 	if enable {
@@ -95,20 +86,10 @@ func (r *Req) EnableCookie(enable bool) {
 	}
 }
 
-// EnableCookieenable or disable cookie manager
-//func EnableCookie(enable bool) {
-//	std.EnableCookie(enable)
-//}
-
 // SetTimeout sets the timeout for every request
 func (r *Req) SetTimeout(d time.Duration) {
 	r.Client().Timeout = d
 }
-
-// SetTimeout sets the timeout for every request
-//func SetTimeout(d time.Duration) {
-//	std.SetTimeout(d)
-//}
 
 // SetProxyUrl set the simple proxy with fixed proxy url
 func (r *Req) SetProxyUrl(rawurl string) error {
@@ -124,11 +105,6 @@ func (r *Req) SetProxyUrl(rawurl string) error {
 	return nil
 }
 
-// SetProxyUrl set the simple proxy with fixed proxy url
-//func SetProxyUrl(rawurl string) error {
-//	return std.SetProxyUrl(rawurl)
-//}
-
 // SetProxy sets the proxy for every request
 func (r *Req) SetProxy(proxy func(*http.Request) (*url.URL, error)) error {
 	trans := r.getTransport()
@@ -138,11 +114,6 @@ func (r *Req) SetProxy(proxy func(*http.Request) (*url.URL, error)) error {
 	trans.Proxy = proxy
 	return nil
 }
-
-// SetProxy sets the proxy for every request
-//func SetProxy(proxy func(*http.Request) (*url.URL, error)) error {
-//	return std.SetProxy(proxy)
-//}
 
 type jsonEncOpts struct {
 	indentPrefix string
@@ -157,11 +128,6 @@ func (r *Req) getJSONEncOpts() *jsonEncOpts {
 	return r.jsonEncOpts
 }
 
-// SetJSONEscapeHTML specifies whether problematic HTML characters
-// should be escaped inside JSON quoted strings.
-// The default behavior is to escape &, <, and > to \u0026, \u003c, and \u003e
-// to avoid certain safety problems that can arise when embedding JSON in HTML.
-//
 // In non-HTML settings where the escaping interferes with the readability
 // of the output, SetEscapeHTML(false) disables this behavior.
 func (r *Req) SetJSONEscapeHTML(escape bool) {
