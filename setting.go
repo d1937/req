@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"golang.org/x/net/publicsuffix"
-	"net"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -22,14 +21,14 @@ func init() {
 		TLSClientConfig: &tls.Config{
 			Renegotiation:      tls.RenegotiateOnceAsClient,
 			InsecureSkipVerify: true},
-		Dial: func(netw, addr string) (net.Conn, error) {
-			c, err := net.DialTimeout(netw, addr, time.Second*15) //设置建立连接超时
-			if err != nil {
-				return nil, err
-			}
-			_ = c.SetDeadline(time.Now().Add(15 * time.Second)) //设置发送接收数据超时
-			return c, nil
-		},
+		//Dial: func(netw, addr string) (net.Conn, error) {
+		//	c, err := net.DialTimeout(netw, addr, time.Second*15) //设置建立连接超时
+		//	if err != nil {
+		//		return nil, err
+		//	}
+		//	_ = c.SetDeadline(time.Now().Add(15 * time.Second)) //设置发送接收数据超时
+		//	return c, nil
+		//},
 		DisableKeepAlives:   true,
 		MaxIdleConnsPerHost: 1,
 		MaxIdleConns:        1,

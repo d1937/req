@@ -6,12 +6,10 @@ import (
 	"compress/zlib"
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"sync"
 	"time"
 )
@@ -227,73 +225,5 @@ func (r *Resp) download(file *os.File) error {
 			}
 			return err
 		}
-	}
-}
-
-var regNewline = regexp.MustCompile(`\n|\r`)
-
-func (r *Resp) autoFormat(s fmt.State) {
-	req := r.req
-	if r.r.flag&Lcost != 0 {
-		fmt.Fprint(s, req.Method, " ", req.URL.String(), " ", r.cost)
-	} else {
-		fmt.Fprint(s, req.Method, " ", req.URL.String())
-	}
-
-	// test if it is should be outputed pretty
-	var pretty bool
-	var parts []string
-	addPart := func(part string) {
-		if part == "" {
-			return
-		}
-		parts = append(parts, part)
-		if !pretty && regNewline.MatchString(part) {
-			pretty = true
-		}
-	}
-	if r.r.flag&LreqBody != 0 { // request body
-		addPart(string(r.reqBody))
-	}
-	if r.r.flag&LrespBody != 0 { // response body
-		addPart(r.String())
-	}
-
-	for _, part := range parts {
-		if pretty {
-			fmt.Fprint(s, "\n")
-		}
-		fmt.Fprint(s, " ", part)
-	}
-}
-
-func (r *Resp) miniFormat(s fmt.State) {
-	req := r.req
-	if r.r.flag&Lcost != 0 {
-		fmt.Fprint(s, req.Method, " ", req.URL.String(), " ", r.cost)
-	} else {
-		fmt.Fprint(s, req.Method, " ", req.URL.String())
-	}
-	if r.r.flag&LreqBody != 0 && len(r.reqBody) > 0 { // request body
-		str := regNewline.ReplaceAllString(string(r.reqBody), " ")
-		fmt.Fprint(s, " ", str)
-	}
-	if r.r.flag&LrespBody != 0 && r.String() != "" { // response body
-		str := regNewline.ReplaceAllString(r.String(), " ")
-		fmt.Fprint(s, " ", str)
-	}
-}
-
-// Format fort the response
-func (r *Resp) Format(s fmt.State, verb rune) {
-	if r == nil || r.req == nil {
-		return
-	}
-	if s.Flag('+') { // include header and format pretty.
-		fmt.Fprint(s, r.Dump())
-	} else if s.Flag('-') { // keep all informations in one line.
-		r.miniFormat(s)
-	} else { // auto
-		r.autoFormat(s)
 	}
 }
