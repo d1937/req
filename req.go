@@ -20,6 +20,15 @@ import (
 	"time"
 )
 
+const (
+	LreqHead  = 1 << iota // output request head (request line and request header)
+	LreqBody              // output request body
+	LrespHead             // output response head (response line and response header)
+	LrespBody             // output response body
+	Lcost                 // output time costed by the request
+	LstdFlags = LreqHead | LreqBody | LrespHead | LrespBody
+)
+
 type BasicAuth struct {
 	Username string
 	Password string
@@ -108,6 +117,7 @@ type Req struct {
 	xmlEncOpts       *xmlEncOpts
 	progressInterval time.Duration
 	Req              *http.Request
+	flag             int
 }
 
 // New create a new *Req
