@@ -125,12 +125,13 @@ func New() *Req {
 	// default progress reporting interval is 200 milliseconds
 	req := &http.Request{
 		//Method:     method,
+
 		Header:     make(http.Header),
 		Proto:      "HTTP/1.1",
 		ProtoMajor: 1,
 		ProtoMinor: 1,
 	}
-	return &Req{Req: req, client: newClient()}
+	return &Req{Req: req, client: newClient(), flag: LstdFlags}
 }
 
 type param struct {
