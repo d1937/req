@@ -47,6 +47,10 @@ func (r *Resp) GetHeader(key string) string  {
 	return r.resp.Header.Get(key)
 }
 
+func (r *Resp) GetStatusCode() int  {
+	return r.resp.StatusCode
+}
+
 func (r *Resp) Header()   http.Header{
 	return r.resp.Header
 }
