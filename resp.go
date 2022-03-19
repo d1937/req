@@ -168,7 +168,7 @@ func (r *Resp) ToString() (string, error) {
 }
 
 
-func (r *Resp) Header(key string) string  {
+func (r *Resp) GetHeader(key string) string  {
 	return r.resp.Header.Get(key)
 }
 
