@@ -167,6 +167,11 @@ func (r *Resp) ToString() (string, error) {
 	return string(data), err
 }
 
+
+func (r *Resp) Header(key string) string  {
+	return r.resp.Header.Get(key)
+}
+
 // ToJSON convert json response body to struct or map
 func (r *Resp) ToJSON(v interface{}) error {
 	data, err := r.ToBytes()
