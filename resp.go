@@ -43,6 +43,14 @@ func (r *Resp) Response() *http.Response {
 	return r.resp
 }
 
+func (r *Resp) GetHeader(key string) string  {
+	return r.resp.Header.Get(key)
+}
+
+func (r *Resp) Header()   http.Header{
+	return r.resp.Header
+}
+
 // Bytes returns response body as []byte
 func (r *Resp) Bytes() []byte {
 	data, _ := r.ToBytes()
@@ -165,11 +173,6 @@ func (resp *Resp) URL() (*url.URL, error) {
 func (r *Resp) ToString() (string, error) {
 	data, err := r.ToBytes()
 	return string(data), err
-}
-
-
-func (r *Resp) GetHeader(key string) string  {
-	return r.resp.Header.Get(key)
 }
 
 // ToJSON convert json response body to struct or map
