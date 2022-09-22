@@ -43,6 +43,18 @@ func (r *Resp) Response() *http.Response {
 	return r.resp
 }
 
+func (r *Resp) GetHeader(key string) string  {
+	return r.resp.Header.Get(key)
+}
+
+func (r *Resp) GetStatusCode() int  {
+	return r.resp.StatusCode
+}
+
+func (r *Resp) Header()   http.Header{
+	return r.resp.Header
+}
+
 // Bytes returns response body as []byte
 func (r *Resp) Bytes() []byte {
 	data, _ := r.ToBytes()
