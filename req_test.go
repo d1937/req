@@ -344,6 +344,7 @@ func TestReq_Get(t *testing.T) {
 
 func TestReq_AddCookies(t *testing.T) {
 	r := New()
+	r.EnableCookie(true)
 	cookies := make(map[string]string)
 	cookies["name"] = "samy"
 	cookies["age"] = "18"

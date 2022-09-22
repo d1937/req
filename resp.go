@@ -167,6 +167,17 @@ func (r *Resp) ToString() (string, error) {
 	return string(data), err
 }
 
+func (r *Resp) ToUTF8String(content []byte) string {
+	html := string(content)
+	encoding := GetEncoding(content, r.Response().Header)
+
+	if encoding != "" {
+		html = EncodingConvertToUtf8(html, encoding)
+	}
+
+	return html
+}
+
 // ToJSON convert json response body to struct or map
 func (r *Resp) ToJSON(v interface{}) error {
 	data, err := r.ToBytes()
